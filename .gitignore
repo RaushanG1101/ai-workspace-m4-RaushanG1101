@@ -1,0 +1,45 @@
+# CMake build directories
+build/
+build-*/
+cmake-build-*/
+out/
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+Makefile
+build.ninja
+
+# Qt generated files
+*_autogen/
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+
+# Compiled files
+*.o
+*.obj
+*.a
+*.so
+*.dll
+*.exe
+*.lib
+
+# IDE files
+.vscode/
+.idea/
+.vs/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+*.log
+
+# Crash dumps
+core
+core.*
+*.dmp
