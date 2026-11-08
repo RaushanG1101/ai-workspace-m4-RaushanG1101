@@ -2,6 +2,7 @@
 
 #include <QApplication>
 #include <QMessageBox>
+#include <QString>
 #include <QWidget>
 
 void confirm_exit(QWidget* parent) {
@@ -24,8 +25,25 @@ int main(int argc, char* argv[]) {
 
     aiws::gui::MainWindow window;
 
-    window.set_exit_callback(&confirm_exit);
+    for (int i = 1; i < argc; ++i) {
+        if (QString::fromLocal8Bit(argv[i]) ==
+                "--build-delay-ms" &&
+            i + 1 < argc) {
 
+            bool ok = false;
+
+            const int delay =
+                QString::fromLocal8Bit(argv[++i]).toInt(&ok);
+
+            if (!ok || delay < 0) {
+                return 2;
+            }
+
+            window.set_build_delay_ms(delay);
+        }
+    }
+
+    window.set_exit_callback(&confirm_exit);
     window.show();
 
     return app.exec();

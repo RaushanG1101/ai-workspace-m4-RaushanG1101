@@ -5,14 +5,19 @@
 #include "aiws/processing_core.hpp"
 #include "aiws/workspace.hpp"
 
+#include <cstddef>
+#include <memory>
+
 class QLabel;
 class QPushButton;
 class QString;
+class QTimer;
 class QWidget;
 
 namespace aiws::gui {
 
 class ContextWidget;
+class CorpusBuildJob;
 class SearchWidget;
 class TermInspectorWidget;
 class WorkspaceWidget;
@@ -44,6 +49,8 @@ public:
      */
     explicit MainWindow(QWidget* parent = nullptr);
 
+    ~MainWindow() override;
+
     /**
      * @brief Registers the callback invoked when the user requests Exit.
      * @param callback Function pointer to invoke for the Exit action. A null
@@ -74,6 +81,8 @@ private slots:
 
     /** @brief Rebuilds the processing corpus from the current non-empty workspace. */
     void build_corpus();
+
+    void check_build_completion();
 
     /**
      * @brief Updates the selected-document display for the requested workspace row.
@@ -145,6 +154,13 @@ private:
     Workspace workspace_;
     ProcessingCore processing_core_;
     bool corpus_current_{false};
+
+    std::size_t workspace_revision_{0};
+    int build_delay_ms_{0};
+
+    std::unique_ptr<CorpusBuildJob> build_job_;
+    QTimer* build_timer_{nullptr};
+
     ExitCallback exit_callback_{nullptr};
 
     WorkspaceWidget* workspace_widget_{nullptr};

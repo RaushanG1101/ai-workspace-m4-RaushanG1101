@@ -2,6 +2,7 @@
 
 #include "aiws/document.hpp"
 #include "aiws/gui/context_widget.hpp"
+#include "aiws/gui/corpus_build_job.hpp"
 #include "aiws/gui/resettable.hpp"
 #include "aiws/gui/search_widget.hpp"
 #include "aiws/gui/term_inspector_widget.hpp"
@@ -14,9 +15,12 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QString>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include <algorithm>
+#include <exception>
 #include <utility>
 
 namespace aiws::gui {
@@ -102,11 +106,31 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     connect(exit_button_, &QPushButton::clicked,
             this, &MainWindow::exit_application);
 
+    build_timer_ = new QTimer(this);
+    build_timer_->setInterval(20);
+
+    connect(build_timer_, &QTimer::timeout,
+            this, &MainWindow::check_build_completion);
+
     update_action_states();
+}
+
+MainWindow::~MainWindow() {
+    build_timer_->stop();
+
+    if (build_job_) {
+        build_job_->request_cancel();
+    }
+
+    build_job_.reset();
 }
 
 void MainWindow::set_exit_callback(ExitCallback callback) noexcept {
     exit_callback_ = callback;
+}
+
+void MainWindow::set_build_delay_ms(int ms_per_document) {
+    build_delay_ms_ = std::max(0, ms_per_document);
 }
 
 void MainWindow::add_document() {
@@ -117,11 +141,15 @@ void MainWindow::add_document() {
         return;
     }
 
+    add_document_file(path);
+}
+
+bool MainWindow::add_document_file(const QString& path) {
     QFile file(path);
 
     if (!file.open(QIODevice::ReadOnly)) {
         status_label_->setText("Could not open document.");
-        return;
+        return false;
     }
 
     const QByteArray bytes = file.readAll();
@@ -135,31 +163,79 @@ void MainWindow::add_document() {
 
     workspace_widget_->add_document(info.fileName());
 
+    ++workspace_revision_;
     invalidate_corpus();
+
     workspace_widget_->select_document(
         static_cast<int>(workspace_.documents().size()) - 1);
 
     status_label_->setText("Document added.");
     update_action_states();
+
+    return true;
 }
 
 void MainWindow::build_corpus() {
-    if (workspace_.documents().empty()) {
+    if (workspace_.documents().empty() || build_job_) {
         return;
     }
 
-    processing_core_.rebuild(workspace_);
-    corpus_current_ = true;
-
+    corpus_current_ = false;
     clear_processing_outputs();
 
-    workspace_widget_->set_corpus_status(
-        "Corpus: " +
-        QString::number(
-            static_cast<qulonglong>(processing_core_.chunk_count())) +
-        " chunks");
+    workspace_widget_->set_corpus_status("Corpus: Building...");
+    status_label_->setText("Building corpus...");
 
-    status_label_->setText("Corpus built.");
+    try {
+        build_job_ = std::make_unique<CorpusBuildJob>(
+            workspace_, workspace_revision_, build_delay_ms_);
+
+        build_timer_->start();
+    } catch (const std::exception& ex) {
+        workspace_widget_->set_corpus_status("Corpus: Build failed.");
+        status_label_->setText(
+            "Build failed: " + QString::fromUtf8(ex.what()));
+    }
+
+    update_action_states();
+}
+
+void MainWindow::check_build_completion() {
+    if (!build_job_ || !build_job_->finished()) {
+        return;
+    }
+
+    build_job_->join();
+
+    const bool current_revision =
+        build_job_->revision() == workspace_revision_;
+
+    const QString error =
+        QString::fromStdString(build_job_->error());
+
+    auto completed_core = build_job_->take_result();
+
+    build_job_.reset();
+    build_timer_->stop();
+
+    if (current_revision && !error.isEmpty()) {
+        corpus_current_ = false;
+
+        workspace_widget_->set_corpus_status("Corpus: Build failed.");
+        status_label_->setText("Build failed: " + error);
+    } else if (current_revision && completed_core) {
+        processing_core_ = std::move(*completed_core);
+        corpus_current_ = true;
+
+        workspace_widget_->set_corpus_status(
+            "Corpus: " +
+            QString::number(
+                static_cast<qulonglong>(processing_core_.chunk_count())) +
+            " chunks");
+
+        status_label_->setText("Corpus built.");
+    }
+
     update_action_states();
 }
 
@@ -247,8 +323,12 @@ void MainWindow::term_inspection_requested(
 
 void MainWindow::reset_application() {
     workspace_.clear();
-    processing_core_.rebuild(workspace_);
+    ++workspace_revision_;
     corpus_current_ = false;
+
+    if (build_job_) {
+        build_job_->request_cancel();
+    }
 
     Resettable* components[] = {
         workspace_widget_,
@@ -273,7 +353,7 @@ void MainWindow::exit_application() {
 
 void MainWindow::update_action_states() {
     workspace_widget_->set_build_corpus_enabled(
-        !workspace_.documents().empty());
+        !workspace_.documents().empty() && !build_job_);
 
     search_widget_->set_search_enabled(
         corpus_current_ && search_widget_->has_query());

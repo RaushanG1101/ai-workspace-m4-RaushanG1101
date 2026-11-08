@@ -29,12 +29,14 @@ target_compile_options(aiws_m2 PRIVATE -Wall -Wextra -Wpedantic)
 # Everything except main(), so tests can link the application code.
 add_library(aiws_app STATIC
     src/main_window.cpp
+    src/corpus_build_job.cpp
     src/workspace_widget.cpp
     src/search_widget.cpp
     src/context_widget.cpp
     src/term_inspector_widget.cpp
     src/search_result_model.cpp
     include/aiws/gui/main_window.hpp
+    include/aiws/gui/corpus_build_job.hpp
     include/aiws/gui/resettable.hpp
     include/aiws/gui/workspace_widget.hpp
     include/aiws/gui/search_widget.hpp
