@@ -177,7 +177,6 @@ bool MainWindow::add_document_file(const QString& path) {
     QFile file(path);
 
     if (!file.open(QIODevice::ReadOnly)) {
-        status_label_->setText("Could not open document.");
         return false;
     }
 
