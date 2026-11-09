@@ -1,4 +1,3 @@
-
 #include <arpa/inet.h>
 #include <cerrno>
 #include <chrono>
@@ -205,13 +204,6 @@ int main(int argc, char* argv[]) {
 
     const std::string file_path = absolute_path.string();
 
-    if (!readable_file(file_path) ||
-        file_path.empty() ||
-        file_path.size() > 1024 * 1024) {
-        std::cerr << "File is unreadable or path is invalid.\n";
-        return 1;
-    }
-
     sockaddr_un address {};
     address.sun_family = AF_UNIX;
 
@@ -236,6 +228,16 @@ int main(int argc, char* argv[]) {
         std::cerr << "Could not connect to AI Workspace.\n";
         ::close(fd);
         return 2;
+    }
+
+    // Check readability after connecting so an unavailable
+    // application correctly produces exit code 2.
+    if (!readable_file(file_path) ||
+        file_path.empty() ||
+        file_path.size() > 1024 * 1024) {
+        std::cerr << "File is unreadable or path is invalid.\n";
+        ::close(fd);
+        return 1;
     }
 
     const auto deadline =

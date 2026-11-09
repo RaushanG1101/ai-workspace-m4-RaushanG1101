@@ -1,4 +1,3 @@
-
 #include "aiws/gui/search_result_model.hpp"
 
 #include <QString>
@@ -64,9 +63,9 @@ QVariant SearchResultModel::headerData(int section,
         case 0:
             return QString("Rank");
         case 1:
-            return QString("Document ID");
+            return QString("Document");
         case 2:
-            return QString("Chunk Sequence");
+            return QString("Chunk");
         case 3:
             return QString("Score");
         case 4:
