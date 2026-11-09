@@ -175,29 +175,45 @@ private slots:
             has_status(window, "Corpus built."), 3000);
     }
 
-    void destruction_during_build() {
+    
+    void completed_stale_build_is_rejected() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
 
-        const QString path = create_file(
-            directory.path(), "exit.txt",
-            "Testing worker cleanup during application exit.");
+        const QString first = create_file(
+            directory.path(),
+            "first.txt",
+            "The original document discusses artificial intelligence.");
 
-        QVERIFY(!path.isEmpty());
+        const QString second = create_file(
+            directory.path(),
+            "second.txt",
+            "The new document discusses thread synchronization.");
 
-        QElapsedTimer timer;
-        timer.start();
+        QVERIFY(!first.isEmpty());
+        QVERIFY(!second.isEmpty());
 
-        {
-            MainWindow window;
-            window.set_build_delay_ms(2000);
+        MainWindow window;
+        window.set_build_delay_ms(0);
 
-            QVERIFY(window.add_document_file(path));
-            QVERIFY(start_build(window));
-        }
+        QVERIFY(window.add_document_file(first));
+        QVERIFY(start_build(window));
 
-        QVERIFY(timer.elapsed() < 1000);
+        // Allow the worker to finish without processing GUI events.
+        QTest::qSleep(1500);
+
+        // Invalidate the workspace before processing completion.
+        QVERIFY(window.add_document_file(second));
+
+        // Allow the GUI timer to process the completed job.
+        // Wait long enough for the timer to fire before checking.
+        QTest::qWait(300);
+
+        // The completed old corpus must not be accepted.
+        QVERIFY(!has_status(window, "Corpus built."));
+        QVERIFY(!has_status(window, "chunks"));
     }
+
 };
 
 QTEST_MAIN(StudentTests)

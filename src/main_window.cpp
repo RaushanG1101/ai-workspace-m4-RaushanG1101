@@ -229,15 +229,28 @@ void MainWindow::build_corpus() {
     update_action_states();
 }
 
+
 void MainWindow::check_build_completion() {
     if (!build_job_ || !build_job_->finished()) {
         return;
     }
 
+#ifdef AIWS_FAULT_LOSE_FAILURE
+    // Deliberately leave a failed build in the Building state.
+    if (!build_job_->error().empty()) {
+        return;
+    }
+#endif
+
     build_job_->join();
 
-    const bool current_revision =
+    bool current_revision =
         build_job_->revision() == workspace_revision_;
+
+#ifdef AIWS_FAULT_ACCEPT_STALE
+    // Deliberately ignore changes to the workspace revision.
+    current_revision = true;
+#endif
 
     const QString error =
         QString::fromStdString(build_job_->error());
@@ -271,6 +284,7 @@ void MainWindow::check_build_completion() {
 
     update_action_states();
 }
+
 
 void MainWindow::document_selected(int row) {
     const auto& documents = workspace_.documents();
