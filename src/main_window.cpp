@@ -1,8 +1,10 @@
+
 #include "aiws/gui/main_window.hpp"
 
 #include "aiws/document.hpp"
 #include "aiws/gui/context_widget.hpp"
 #include "aiws/gui/corpus_build_job.hpp"
+#include "aiws/gui/remote_add_server.hpp"
 #include "aiws/gui/resettable.hpp"
 #include "aiws/gui/search_widget.hpp"
 #include "aiws/gui/term_inspector_widget.hpp"
@@ -116,6 +118,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 }
 
 MainWindow::~MainWindow() {
+    if (remote_add_server_) {
+        remote_add_server_->stop();
+    }
+
     build_timer_->stop();
 
     if (build_job_) {
@@ -131,6 +137,29 @@ void MainWindow::set_exit_callback(ExitCallback callback) noexcept {
 
 void MainWindow::set_build_delay_ms(int ms_per_document) {
     build_delay_ms_ = std::max(0, ms_per_document);
+}
+
+bool MainWindow::start_ipc_server(const QString& socket_path) {
+    if (remote_add_server_) {
+        return false;
+    }
+
+    auto server = std::make_unique<RemoteAddServer>(socket_path);
+
+    connect(server.get(), &RemoteAddServer::document_received,
+            this, &MainWindow::add_document_from_ipc,
+            Qt::QueuedConnection);
+
+    if (!server->start()) {
+        return false;
+    }
+
+    remote_add_server_ = std::move(server);
+    return true;
+}
+
+void MainWindow::add_document_from_ipc(const QString& path) {
+    add_document_file(path);
 }
 
 void MainWindow::add_document() {
@@ -234,6 +263,10 @@ void MainWindow::check_build_completion() {
             " chunks");
 
         status_label_->setText("Corpus built.");
+    } else if (current_revision) {
+        corpus_current_ = false;
+        workspace_widget_->set_corpus_status("Corpus: Build failed.");
+        status_label_->setText("Build failed: No result.");
     }
 
     update_action_states();

@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include <QMainWindow>
@@ -18,6 +19,7 @@ namespace aiws::gui {
 
 class ContextWidget;
 class CorpusBuildJob;
+class RemoteAddServer;
 class SearchWidget;
 class TermInspectorWidget;
 class WorkspaceWidget;
@@ -72,6 +74,8 @@ public:
      */
     void set_build_delay_ms(int ms_per_document);
 
+    bool start_ipc_server(const QString& socket_path);
+
     // Everything below this line is the M3 design. In M4 it is yours to
     // change: add, remove, or redesign private members, slots, and helpers.
 
@@ -83,6 +87,8 @@ private slots:
     void build_corpus();
 
     void check_build_completion();
+
+    void add_document_from_ipc(const QString& path);
 
     /**
      * @brief Updates the selected-document display for the requested workspace row.
@@ -160,6 +166,8 @@ private:
 
     std::unique_ptr<CorpusBuildJob> build_job_;
     QTimer* build_timer_{nullptr};
+
+    std::unique_ptr<RemoteAddServer> remote_add_server_;
 
     ExitCallback exit_callback_{nullptr};
 

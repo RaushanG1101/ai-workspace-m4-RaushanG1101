@@ -30,6 +30,7 @@ target_compile_options(aiws_m2 PRIVATE -Wall -Wextra -Wpedantic)
 add_library(aiws_app STATIC
     src/main_window.cpp
     src/corpus_build_job.cpp
+    src/remote_add_server.cpp
     src/workspace_widget.cpp
     src/search_widget.cpp
     src/context_widget.cpp
@@ -37,6 +38,7 @@ add_library(aiws_app STATIC
     src/search_result_model.cpp
     include/aiws/gui/main_window.hpp
     include/aiws/gui/corpus_build_job.hpp
+    include/aiws/gui/remote_add_server.hpp
     include/aiws/gui/resettable.hpp
     include/aiws/gui/workspace_widget.hpp
     include/aiws/gui/search_widget.hpp
@@ -52,6 +54,9 @@ add_executable(ai_workspace_m4 src/main.cpp)
 target_link_libraries(ai_workspace_m4 PRIVATE aiws_app)
 target_compile_options(ai_workspace_m4 PRIVATE -Wall -Wextra -Wpedantic)
 
+add_executable(aiws_send
+    src/aiws_send.cpp
+)
 enable_testing()
 add_executable(student_tests tests/student_tests.cpp)
 target_link_libraries(student_tests PRIVATE aiws_app Qt6::Test)
