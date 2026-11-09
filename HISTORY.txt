@@ -1,0 +1,113 @@
+﻿commit 13eac569b25c5d2d1a2b00b6afe6cfca0dcd9dce
+Author: RaushanG1101 <raushang@vt.edu>
+Date:   2026-11-08 23:38:31 -0500
+
+    Finalize M4 design and document handling
+
+ DESIGN.md           | 75 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ src/main_window.cpp |  1 -
+ 2 files changed, 75 insertions(+), 1 deletion(-)
+
+commit b3e0fcab5dc2f4b1ff133dc2b49cfc4b0f004fed
+Author: RaushanG1101 <raushang@vt.edu>
+Date:   2026-11-08 22:19:02 -0500
+
+    Add automated IPC integration and lifecycle tests
+
+ CMakeLists.txt               |   6 +-
+ tests/student_tests.cpp      | 269 +++++++++++++++++++++++++++++++++++++++++--
+ {src => tools}/aiws_send.cpp |   0
+ 3 files changed, 265 insertions(+), 10 deletions(-)
+
+commit 604913dd128c5c7a37a6f75262dce76c363370f3
+Author: RaushanG1101 <raushang@vt.edu>
+Date:   2026-11-08 21:48:36 -0500
+
+    Add fault injection and stale build regression test
+
+ src/main_window.cpp     | 16 +++++++++++++++-
+ tests/student_tests.cpp | 44 ++++++++++++++++++++++++++++++--------------
+ 2 files changed, 45 insertions(+), 15 deletions(-)
+
+commit a830fa961d0c3dc1f90299b704a740a1b58d5499
+Author: RaushanG1101 <raushang@vt.edu>
+Date:   2026-11-08 19:42:31 -0500
+
+    Implement IPC and add asynchronous build tests
+
+ CMakeLists.txt                         |   5 +
+ include/aiws/gui/main_window.hpp       |   8 +
+ include/aiws/gui/remote_add_server.hpp |  41 +++++
+ src/aiws_send.cpp                      | 270 +++++++++++++++++++++++++++++++++
+ src/main.cpp                           |  60 ++++++--
+ src/main_window.cpp                    |  33 ++++
+ src/remote_add_server.cpp              | 227 +++++++++++++++++++++++++++
+ tests/student_tests.cpp                | 205 ++++++++++++++++++++++++-
+ 8 files changed, 833 insertions(+), 16 deletions(-)
+
+commit 025c028b4b1f73b03defc0d7c6b1f56350dd0c44
+Author: RaushanG1101 <raushang@vt.edu>
+Date:   2026-11-08 17:46:06 -0500
+
+    Implement asynchronous corpus building
+
+ CMakeLists.txt                        |   2 +
+ include/aiws/gui/corpus_build_job.hpp |  44 ++++++++++++++
+ include/aiws/gui/main_window.hpp      |  16 +++++
+ src/corpus_build_job.cpp              |  98 +++++++++++++++++++++++++++++++
+ src/main.cpp                          |  20 ++++++-
+ src/main_window.cpp                   | 106 +++++++++++++++++++++++++++++-----
+ 6 files changed, 272 insertions(+), 14 deletions(-)
+
+commit 981b730f2eeebb75d19df70a5dffd01527c66f63
+Author: RaushanG1101 <raushang@vt.edu>
+Date:   2026-11-08 14:24:34 -0500
+
+    Set up M4 starter with working M3 baseline
+
+ .gitignore                                 |  45 +++++
+ CMakeLists.txt                             |  57 ++++++
+ DESIGN.md                                  |   3 +
+ DESIGN_NOTE.md                             |  25 +++
+ STARTER_README.pdf                         | Bin 0 -> 39600 bytes
+ data/public/doc_ai.txt                     |   3 +
+ data/public/doc_retrieval.txt              |   3 +
+ data/public/doc_systems.txt                |   3 +
+ data/public/queries.txt                    |   4 +
+ desktop.ini                                |   2 +
+ include/aiws/chunker.hpp                   |  25 +++
+ include/aiws/chunking_strategy.hpp         |  18 ++
+ include/aiws/context_builder.hpp           |  13 ++
+ include/aiws/context_strategy.hpp          |  17 ++
+ include/aiws/corpus_index.hpp              |  36 ++++
+ include/aiws/document.hpp                  |  22 +++
+ include/aiws/gui/context_widget.hpp        |  75 +++++++
+ include/aiws/gui/main_window.hpp           | 159 +++++++++++++++
+ include/aiws/gui/resettable.hpp            |  22 +++
+ include/aiws/gui/search_result_model.hpp   |  84 ++++++++
+ include/aiws/gui/search_widget.hpp         | 105 ++++++++++
+ include/aiws/gui/term_inspector_widget.hpp |  81 ++++++++
+ include/aiws/gui/workspace_widget.hpp      | 101 ++++++++++
+ include/aiws/processing_core.hpp           |  53 +++++
+ include/aiws/processing_types.hpp          |  38 ++++
+ include/aiws/retrieval_engine.hpp          |  18 ++
+ include/aiws/retrieval_strategy.hpp        |  20 ++
+ include/aiws/text_processor.hpp            |  29 +++
+ include/aiws/workspace.hpp                 |  19 ++
+ src/chunker.cpp                            |  59 ++++++
+ src/context_builder.cpp                    |  29 +++
+ src/context_widget.cpp                     | 117 +++++++++++
+ src/corpus_index.cpp                       |  72 +++++++
+ src/document.cpp                           |  14 ++
+ src/main.cpp                               |  32 +++
+ src/main_window.cpp                        | 302 +++++++++++++++++++++++++++++
+ src/processing_core.cpp                    | 108 +++++++++++
+ src/retrieval_engine.cpp                   |  86 ++++++++
+ src/search_result_model.cpp                |  99 ++++++++++
+ src/search_widget.cpp                      | 180 +++++++++++++++++
+ src/term_inspector_widget.cpp              | 100 ++++++++++
+ src/text_processor.cpp                     | 116 +++++++++++
+ src/workspace.cpp                          |  17 ++
+ src/workspace_widget.cpp                   |  92 +++++++++
+ tests/student_tests.cpp                    |   2 +
+ 45 files changed, 2505 insertions(+)
