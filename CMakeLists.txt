@@ -54,11 +54,11 @@ add_executable(ai_workspace_m4 src/main.cpp)
 target_link_libraries(ai_workspace_m4 PRIVATE aiws_app)
 target_compile_options(ai_workspace_m4 PRIVATE -Wall -Wextra -Wpedantic)
 
-add_executable(aiws_send
-    src/aiws_send.cpp
-)
+add_executable(aiws_send tools/aiws_send.cpp)
+
 enable_testing()
 add_executable(student_tests tests/student_tests.cpp)
+add_dependencies(student_tests aiws_send)
 target_link_libraries(student_tests PRIVATE aiws_app Qt6::Test)
 add_test(NAME student_tests COMMAND student_tests)
 set_tests_properties(student_tests PROPERTIES TIMEOUT 60 ENVIRONMENT QT_QPA_PLATFORM=offscreen)
