@@ -33,6 +33,12 @@ class MainWindow::State {
 public:
     virtual ~State() = default;
 
+    virtual void exit(MainWindow& window) {
+        if (window.exit_callback_ != nullptr) {
+            window.exit_callback_(&window);
+        }
+    }
+
     virtual bool can_build() const {
         return false;
     }
@@ -273,6 +279,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     // Create one worker for the application's lifetime.
     build_job_ = std::make_unique<CorpusBuildJob>();
+    build_job_->setParent(this);
 
     // Deliver worker completion to the GUI thread.
     connect(build_job_.get(),
@@ -658,9 +665,7 @@ void MainWindow::reset_application() {
 }
 
 void MainWindow::exit_application() {
-    if (exit_callback_ != nullptr) {
-        exit_callback_(this);
-    }
+    state_->exit(*this);
 }
 
 // ------------------------------------------------------------

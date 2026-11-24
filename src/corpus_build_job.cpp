@@ -71,14 +71,47 @@ CorpusBuildJob::take_result() {
     return result;
 }
 
+bool CorpusBuildJob::wait_until_active(
+    std::chrono::milliseconds timeout) {
+
+    std::unique_lock<std::mutex> lock(mutex_);
+
+    return lifecycle_condition_.wait_for(
+        lock,
+        timeout,
+        [this] {
+            return active_ != nullptr;
+        });
+}
+
+bool CorpusBuildJob::wait_until_idle(
+    std::chrono::milliseconds timeout) {
+
+    std::unique_lock<std::mutex> lock(mutex_);
+
+    return lifecycle_condition_.wait_for(
+        lock,
+        timeout,
+        [this] {
+            return idle_ &&
+                   !pending_.has_value() &&
+                   !active_;
+        });
+}
+
 void CorpusBuildJob::run() {
     for (;;) {
         std::unique_lock<std::mutex> lock(mutex_);
+
+        idle_ = true;
+        lifecycle_condition_.notify_all();
 
         condition_.wait(lock, [this] {
             return stopping_.load() ||
                    pending_.has_value();
         });
+
+        idle_ = false;
 
         if (stopping_.load()) {
             return;
@@ -88,6 +121,8 @@ void CorpusBuildJob::run() {
         pending_.reset();
 
         active_ = request.cancel;
+
+        lifecycle_condition_.notify_all();
 
         lock.unlock();
 
@@ -117,8 +152,8 @@ void CorpusBuildJob::run() {
                             return false;
                         }
 
-                        // Simulate document processing time
-                        // while allowing cancellation and shutdown.
+                        // Simulated document processing delay.
+                        // Cancellation and shutdown can interrupt it.
                         std::unique_lock<std::mutex>
                             delay_lock(mutex_);
 

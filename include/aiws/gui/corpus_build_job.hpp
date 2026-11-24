@@ -4,7 +4,9 @@
 
 #include <QObject>
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <thread>
@@ -32,6 +34,10 @@ public:
 
     std::optional<Result> take_result();
 
+    // Bounded lifecycle observation for synchronization tests.
+    bool wait_until_active(std::chrono::milliseconds timeout);
+    bool wait_until_idle(std::chrono::milliseconds timeout);
+
 signals:
     void completed();
 
@@ -48,10 +54,16 @@ private:
     std::mutex mutex_;
     std::condition_variable condition_;
 
+    // Separate condition variable for lifecycle observers.
+    std::condition_variable lifecycle_condition_;
+
     std::optional<Request> pending_;
     std::optional<Result> result_;
 
     std::shared_ptr<std::atomic<bool>> active_;
+
+    // Protected by mutex_.
+    bool idle_{false};
 
     std::atomic<bool> stopping_{false};
 

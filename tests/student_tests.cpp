@@ -1,6 +1,11 @@
 
 // Your M4 tests (specification, Section 6).
 #include "aiws/gui/main_window.hpp"
+#include "aiws/gui/corpus_build_job.hpp"
+#include "aiws/gui/workspace_widget.hpp"
+#include <QEvent>
+#include <QListWidget>
+#include <chrono>
 
 #include <QApplication>
 #include <QCoreApplication>
@@ -22,11 +27,51 @@
 #include <memory>
 
 using aiws::gui::MainWindow;
+using aiws::gui::CorpusBuildJob;
+using aiws::gui::WorkspaceWidget;
+using namespace std::chrono_literals;
 
 class StudentTests : public QObject {
     Q_OBJECT
 
 private:
+    bool wait_for_active(MainWindow& window) {
+        auto* worker =
+            window.findChild<CorpusBuildJob*>();
+
+        return worker &&
+               worker->wait_until_active(3000ms);
+    }
+
+    bool wait_for_idle(MainWindow& window) {
+        auto* worker =
+            window.findChild<CorpusBuildJob*>();
+
+        if (!worker ||
+            !worker->wait_until_idle(8000ms)) {
+            return false;
+        }
+
+        QCoreApplication::sendPostedEvents(
+            &window, QEvent::MetaCall);
+
+        return true;
+    }
+
+    int document_count(MainWindow& window) {
+        auto* workspace =
+            window.findChild<WorkspaceWidget*>();
+
+        if (!workspace) {
+            return -1;
+        }
+
+        auto* list =
+            workspace->findChild<QListWidget*>();
+
+        return list ? list->count() : -1;
+    }
+
     QString create_file(const QString& directory,
                         const QString& name,
                         const QString& text) {
@@ -116,8 +161,8 @@ private slots:
 
         QVERIFY(start_build(window));
 
-        // Allow the background build to begin.
-        QTest::qWait(250);
+        // Confirm that the worker has accepted the request.
+        QVERIFY(wait_for_active(window));
 
         QVERIFY(reset_window(window));
 
@@ -161,8 +206,8 @@ private slots:
             has_status(*window, "Corpus built."),
             2000);
 
-        // Allow the worker to return to its idle wait.
-        QTest::qWait(100);
+        // Confirm that the worker has returned to its idle wait.
+        QVERIFY(wait_for_idle(*window));
 
         QElapsedTimer timer;
         timer.start();
@@ -262,6 +307,7 @@ private slots:
 
         QVERIFY(window.add_document_file(first));
         QVERIFY(start_build(window));
+        QVERIFY(wait_for_active(window));
 
         QElapsedTimer timer;
         timer.start();
@@ -271,7 +317,7 @@ private slots:
         QVERIFY(timer.elapsed() < 400);
         QVERIFY(has_status(window, "Document added."));
 
-        QTest::qWait(700);
+        QVERIFY(wait_for_idle(window));
 
         QVERIFY(!has_status(window, "Corpus built."));
     }
@@ -291,11 +337,12 @@ private slots:
 
         QVERIFY(window.add_document_file(path));
         QVERIFY(start_build(window));
+        QVERIFY(wait_for_active(window));
         QVERIFY(reset_window(window));
 
         QVERIFY(has_status(window, "Application reset."));
 
-        QTest::qWait(700);
+        QVERIFY(wait_for_idle(window));
 
         QVERIFY(!has_status(window, "Corpus built."));
         QVERIFY(!has_status(window, "chunks"));
@@ -357,6 +404,7 @@ private slots:
 
             QVERIFY(window.add_document_file(path));
             QVERIFY(start_build(window));
+            QVERIFY(wait_for_active(window));
         }
 
         QVERIFY(timer.elapsed() < 1000);
@@ -385,14 +433,17 @@ private slots:
         QVERIFY(window.add_document_file(first));
         QVERIFY(start_build(window));
 
-        // Let the worker finish without processing GUI events.
-        QTest::qSleep(1500);
+        // Wait for worker completion without delivering GUI events.
+        auto* worker = window.findChild<CorpusBuildJob*>();
+        QVERIFY(worker != nullptr);
+        QVERIFY(worker->wait_until_idle(3000ms));
 
         // Change the workspace before processing completion.
         QVERIFY(window.add_document_file(second));
 
-        // Process the completion timer.
-        QTest::qWait(300);
+        // Deliver queued completion events.
+        QCoreApplication::sendPostedEvents(
+            &window, QEvent::MetaCall);
 
         // The completed old corpus must not be accepted.
         QVERIFY(!has_status(window, "Corpus built."));
@@ -423,6 +474,7 @@ private slots:
         QVERIFY(window.start_ipc_server(socket_path));
         QVERIFY(window.add_document_file(first));
         QVERIFY(start_build(window));
+        QVERIFY(wait_for_active(window));
 
         QVERIFY(has_status(window, "Building"));
 
@@ -431,8 +483,8 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(
             has_status(window, "Document added."), 2000);
 
-        // Allow the cancelled build to finish.
-        QTest::qWait(800);
+        // Wait for obsolete processing to finish.
+        QVERIFY(wait_for_idle(window));
 
         QVERIFY(!has_status(window, "Corpus built."));
 
@@ -457,7 +509,8 @@ private slots:
             "Document with spaces in its filename.");
 
         const QString unicode = create_file(
-            directory.path(), QString::fromUtf8("café-日本語.txt"),
+            directory.path(),
+            QStringLiteral("caf\u00E9-\u65E5\u672C\u8A9E.txt"),
             "Document with Unicode in its filename.");
 
         const QString newline = create_file(
@@ -475,8 +528,8 @@ private slots:
         QCOMPARE(run_sender(socket_path, unicode), 0);
         QCOMPARE(run_sender(socket_path, newline), 0);
 
-        // Process all queued remote-add requests before building.
-        QTest::qWait(200);
+        // Wait until all three remote documents are present.
+        QTRY_COMPARE_WITH_TIMEOUT(document_count(window), 3, 3000);
 
         QVERIFY(start_build(window));
 
@@ -580,6 +633,7 @@ private slots:
 
         QVERIFY(window->add_document_file(file_path));
         QVERIFY(start_build(*window));
+        QVERIFY(wait_for_active(*window));
 
         QElapsedTimer timer;
         timer.start();
