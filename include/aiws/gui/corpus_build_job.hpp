@@ -1,44 +1,61 @@
-
 #pragma once
 
 #include "aiws/processing_core.hpp"
-#include "aiws/workspace.hpp"
 
+#include <QObject>
 #include <atomic>
-#include <cstddef>
-#include <memory>
-#include <string>
+#include <condition_variable>
+#include <mutex>
+#include <optional>
 #include <thread>
 
 namespace aiws::gui {
 
-class CorpusBuildJob final {
+class CorpusBuildJob final : public QObject {
+    Q_OBJECT
+
 public:
-    CorpusBuildJob(Workspace snapshot,
-                   std::size_t revision,
-                   int delay_ms);
-    ~CorpusBuildJob();
+    struct Result {
+        std::size_t revision;
+        std::unique_ptr<ProcessingCore> core;
+        std::string error;
+    };
 
-    CorpusBuildJob(const CorpusBuildJob&) = delete;
-    CorpusBuildJob& operator=(const CorpusBuildJob&) = delete;
+    CorpusBuildJob();
+    ~CorpusBuildJob() override;
 
-    bool finished() const noexcept;
-    void request_cancel() noexcept;
-    void join();
+    void submit(Workspace snapshot,
+                std::size_t revision,
+                int delay_ms);
 
-    std::size_t revision() const noexcept;
-    std::unique_ptr<ProcessingCore> take_result();
-    const std::string& error() const noexcept;
+    void request_cancel();
+
+    std::optional<Result> take_result();
+
+signals:
+    void completed();
 
 private:
-    void run(Workspace snapshot, int delay_ms) noexcept;
+    struct Request {
+        Workspace snapshot;
+        std::size_t revision;
+        int delay_ms;
+        std::shared_ptr<std::atomic<bool>> cancel;
+    };
 
-    std::size_t revision_;
-    std::atomic<bool> finished_{false};
-    std::atomic<bool> cancel_{false};
+    void run();
+
+    std::mutex mutex_;
+    std::condition_variable condition_;
+
+    std::optional<Request> pending_;
+    std::optional<Result> result_;
+
+    std::shared_ptr<std::atomic<bool>> active_;
+
+    std::atomic<bool> stopping_{false};
+
     std::thread worker_;
-    std::unique_ptr<ProcessingCore> result_;
-    std::string error_;
 };
 
 }  // namespace aiws::gui

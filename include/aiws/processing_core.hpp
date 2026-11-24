@@ -7,6 +7,7 @@
 #include "aiws/workspace.hpp"
 
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -20,9 +21,11 @@ public:
     static constexpr std::size_t kParagraphPreferenceWindow = 20;
 
     ProcessingCore();
+
     ProcessingCore(std::unique_ptr<ChunkingStrategy> chunking,
                    std::unique_ptr<RetrievalStrategy> retrieval,
                    std::unique_ptr<ContextStrategy> context);
+
     ~ProcessingCore();
 
     ProcessingCore(ProcessingCore&&) noexcept;
@@ -33,17 +36,29 @@ public:
     static std::string normalize(const std::string& text);
 
     void rebuild(const Workspace& workspace);
+
+    bool rebuild_interruptible(
+        const Workspace& workspace,
+        const std::function<bool()>& before_document,
+        const std::function<bool()>& keep_going);
+
     const std::vector<Chunk>& chunks() const noexcept;
     std::size_t chunk_count() const noexcept;
 
-    std::size_t document_frequency(const std::string& term) const;
-    std::size_t term_frequency(const std::string& term,
-                               const std::string& chunk_id) const;
+    std::size_t document_frequency(
+        const std::string& term) const;
 
-    std::vector<SearchResult> search(const std::string& query, int k) const;
-    std::vector<ContextItem> build_context(const std::string& query,
-                                           int k,
-                                           std::size_t token_budget) const;
+    std::size_t term_frequency(
+        const std::string& term,
+        const std::string& chunk_id) const;
+
+    std::vector<SearchResult> search(
+        const std::string& query, int k) const;
+
+    std::vector<ContextItem> build_context(
+        const std::string& query,
+        int k,
+        std::size_t token_budget) const;
 
 private:
     struct Impl;
