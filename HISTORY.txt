@@ -1,4 +1,22 @@
-﻿commit 7fb1cc4dbc770b317113c680ef5e71ed4b3374eb
+﻿commit a059bb3e5ed9645dee39e3d863660214814e4b57
+Author: RaushanG1101 <raushang@vt.edu>
+Date:   2026-11-23 22:48:47 -0500
+
+    update m5 documentation
+
+ DESIGN.md | 88 ++++++++++++++++++++-------------------------------------------
+ 1 file changed, 27 insertions(+), 61 deletions(-)
+
+commit db375aa82ce670328a6702319f18fd0466655780
+Author: RaushanG1101 <raushang@vt.edu>
+Date:   2026-11-23 22:45:39 -0500
+
+    Add final M5 development history
+
+ HISTORY.txt | 77 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 76 insertions(+), 1 deletion(-)
+
+commit 7fb1cc4dbc770b317113c680ef5e71ed4b3374eb
 Author: RaushanG1101 <raushang@vt.edu>
 Date:   2026-11-23 22:45:25 -0500
 
