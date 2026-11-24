@@ -1,4 +1,22 @@
-﻿commit a059bb3e5ed9645dee39e3d863660214814e4b57
+﻿commit b64ab03806ed67c7319f919b3018bf824eb9cc18
+Author: RaushanG1101 <raushang@vt.edu>
+Date:   2026-11-23 23:56:36 -0500
+
+    Add M5 walkthrough video and finalize design documentation
+
+ VIDEO.md | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit 95070ae810695974eb3234725a23a2b63ee38071
+Author: RaushanG1101 <raushang@vt.edu>
+Date:   2026-11-23 22:49:02 -0500
+
+    Add final final M5 development history
+
+ HISTORY.txt | 20 +++++++++++++++++++-
+ 1 file changed, 19 insertions(+), 1 deletion(-)
+
+commit a059bb3e5ed9645dee39e3d863660214814e4b57
 Author: RaushanG1101 <raushang@vt.edu>
 Date:   2026-11-23 22:48:47 -0500
 
