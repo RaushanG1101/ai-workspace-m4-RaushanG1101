@@ -94,6 +94,130 @@ private:
     }
 
 private slots:
+
+        void cancelled_build_does_not_delay_next_build() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        MainWindow window;
+        window.set_build_delay_ms(500);
+
+        // Create a corpus that takes approximately six
+        // seconds to build without cancellation.
+        for (int i = 0; i < 12; ++i) {
+            const QString path = create_file(
+                directory.path(),
+                QString("old_%1.txt").arg(i),
+                "Obsolete corpus document.");
+
+            QVERIFY(!path.isEmpty());
+            QVERIFY(window.add_document_file(path));
+        }
+
+        QVERIFY(start_build(window));
+
+        // Allow the background build to begin.
+        QTest::qWait(250);
+
+        QVERIFY(reset_window(window));
+
+        const QString replacement = create_file(
+            directory.path(),
+            "replacement.txt",
+            "Replacement corpus document.");
+
+        QVERIFY(!replacement.isEmpty());
+        QVERIFY(window.add_document_file(replacement));
+
+        QElapsedTimer timer;
+        timer.start();
+
+        QVERIFY(start_build(window));
+
+        QTRY_VERIFY_WITH_TIMEOUT(
+            has_status(window, "Corpus built."),
+            2000);
+
+        QVERIFY(timer.elapsed() < 2000);
+    }
+
+        void idle_worker_shutdown() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        auto window = std::make_unique<MainWindow>();
+
+        const QString path = create_file(
+            directory.path(),
+            "idle.txt",
+            "Worker shutdown test.");
+
+        QVERIFY(!path.isEmpty());
+        QVERIFY(window->add_document_file(path));
+
+        QVERIFY(start_build(*window));
+
+        QTRY_VERIFY_WITH_TIMEOUT(
+            has_status(*window, "Corpus built."),
+            2000);
+
+        // Allow the worker to return to its idle wait.
+        QTest::qWait(100);
+
+        QElapsedTimer timer;
+        timer.start();
+
+        window.reset();
+
+        QVERIFY(timer.elapsed() < 500);
+    }
+
+        void repeated_builds_and_state_transitions() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        MainWindow window;
+        window.set_build_delay_ms(100);
+
+        for (int i = 0; i < 3; ++i) {
+            const QString path = create_file(
+                directory.path(),
+                QString("document_%1.txt").arg(i),
+                "Repeated corpus build test.");
+
+            QVERIFY(!path.isEmpty());
+            QVERIFY(window.add_document_file(path));
+
+            QVERIFY(start_build(window));
+
+            // Another request during Building must not
+            // start a competing corpus build.
+            QVERIFY(start_build(window));
+
+            QTRY_VERIFY_WITH_TIMEOUT(
+                has_status(window, "Corpus built."),
+                2000);
+        }
+
+        QVERIFY(reset_window(window));
+
+        QVERIFY(!has_status(window, "Corpus built."));
+
+        const QString path = create_file(
+            directory.path(),
+            "new_corpus.txt",
+            "New corpus after reset.");
+
+        QVERIFY(!path.isEmpty());
+        QVERIFY(window.add_document_file(path));
+
+        QVERIFY(start_build(window));
+
+        QTRY_VERIFY_WITH_TIMEOUT(
+            has_status(window, "Corpus built."),
+            2000);
+    }
+
     void build_completes() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
