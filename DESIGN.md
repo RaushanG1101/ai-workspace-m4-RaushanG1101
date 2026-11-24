@@ -1,78 +1,90 @@
-# M4 Decision Record
+# M5 - Thread-Safe Design
 
-See specification Section 8.
+## 1. M4 Fixes
 
-1. Threads, ownership, and shared data
-MainWindow runs on the Qt GUI thread and owns the live Workspace, ProcessingCore, CorpusBuildJob, and RemoteAddServer. Qt parent ownership manages widgets and the completion QTimer; std::unique_ptr manages worker objects. CorpusBuildJob runs a std::thread over a private workspace snapshot and builds a separate ProcessingCore. It never touches GUI widgets or the live workspace. The build covers the whole workspace, not just the selected document.
+The M4 and CR-1 baseline passed all existing functional tests. Fixed waiting periods in the inherited tests were replaced with bounded lifecycle synchronization to address the timing issues identified in the M4 grading feedback.
 
-Cross-thread mutable state consists of the atomic cancellation and completion flags and the worker-written result/error. The worker publishes completion after writing its result/error; the GUI observes completion and joins the worker before accessing those values. The snapshot is private to the worker. RemoteAddServer uses a separate std::thread for POSIX socket I/O and emits document_received through a queued Qt connection; MainWindow::add_document_from_ipc() runs on the GUI thread. The server acknowledges requests without waiting for GUI processing. Workers are stopped and joined during destruction.
+## 2. Threads and Shared Data
 
-2. Corpus validity and lifecycle
-workspace_revision_ increments on Add Document, Remote Add, and Reset. Each build records its starting revision. MainWindow::check_build_completion() accepts a successful result only when its revision matches the live workspace; stale results are discarded. Search, Term Inspector, and Build Context stay disabled until the corpus is current. Build Corpus is disabled while a job is outstanding rather than starting another concurrent build. --build-delay-ms delays each document in the worker, not the GUI. Reset invalidates the corpus and requests cancellation; failures report an error and restore the nonbuilding state. Exit stops IPC and joins workers.
+The GUI thread owns MainWindow, Workspace, ProcessingCore, workspace_revision_, widgets, and State objects. CorpusBuildJob creates one persistent std::thread, while RemoteAddServer maintains a separate IPC thread.
 
-3. Changes since checkpoint
-I added CorpusBuildJob, cooperative cancellation, and QTimer completion polling to implement responsive building and safe shutdown. CR-1 required a socket server, command-line sender, and integration tests. The M3 corpus-processing algorithms were retained.
+CorpusBuildJob::mutex_ protects the following shared variables:
 
-4. CR-1 impact and protocol
-main.cpp parses --ipc-socket; MainWindow::start_ipc_server() connects the server's queued document_received signal to add_document_from_ipc(), which calls add_document_file() to reuse normal document insertion and corpus invalidation. src/remote_add_server.cpp handles server I/O; tools/aiws_send.cpp handles the client; CMake adds the sender target. The request is a four-byte unsigned network-order UTF-8 path length followed by exactly that many UTF-8 bytes, without a terminator. Reads handle fragmentation; the one-byte acknowledgment does not wait for the GUI. Sender exit codes are 0 (accepted), 1 (rejected), and 2 (communication failure).
+- pending_: The GUI submits build requests, and the worker retrieves them.
+- result_: The worker publishes completed results, and the GUI retrieves them.
+- active_: The worker identifies the active request, and the GUI accesses its cancellation token.
+- idle_: The worker updates its idle status, which the lifecycle tests observe.
 
-5. Fault injection and testing
-Both production switches are in MainWindow::check_build_completion(): AIWS_FAULT_ACCEPT_STALE bypasses revision validation and is caught by completed_stale_build_is_rejected; AIWS_FAULT_LOSE_FAILURE suppresses failure handling and is caught by failure_and_recovery. Neither switch is referenced in tests or CMake. Normal Docker tests passed; both fault-enabled suites failed as intended within 60 seconds. Tests also cover responsiveness, Reset, destruction, IPC filenames, fragmented requests, and socket cleanup.
+Request::cancel points to an atomic cancellation flag. The GUI sets this flag, and the worker checks it during processing. The atomic stopping_ flag communicates shutdown.
 
-6. AI-use disclosure
-I used ChatGPT to interpret requirements, draft and review C++/Qt code and tests, troubleshoot CMake/Docker, and organize documentation. I reviewed the code and ran the Docker tests.
+The condition_ variable coordinates requests, cancellation, processing delays, and shutdown. The lifecycle_condition_ variable allows tests to observe worker activity without fixed sleeps.
 
-# Pair programming log
-Partners: Vanesha Hari and Raushan Goureddy
-Session 1: Responsive Corpus Building
-Date: Sunday, November 8, 2026
-Start: 2:30 PM
-End: 3:00 PM
-Codebase: Vanesha Hari's M4 project
-Focus: Background corpus building, generation checks, and delayed-build tests
+The worker processes a private Workspace snapshot and constructs a private ProcessingCore. Completed results transfer ownership through result_. The completed() signal invokes check_build_completion() through a queued connection on the GUI thread.
 
-Work Completed
-This session focused on moving corpus building off the main Qt thread so the GUI could stay responsive. We looked at the std::thread build path, the --build-delay-ms option, and the generation counter used to detect when the workspace changes during a build. We also looked at how the worker reports its result back to the main Qt thread and what should happen during Reset or Exit.
+RemoteAddServer::stopping_ is atomic. The GUI writes it through stop(), and the IPC thread reads it. The listening descriptor remains unchanged until the IPC thread joins. Remote document paths are delivered through a queued signal.
 
-Driver and Navigator Roles
-2:30 PM to 2:45 PM
-- Driver: Vanesha Hari
-- Navigator: Raushan Goureddy
-Vanesha worked through the background-build and generation-check logic. Raushan's navigator contribution was identifying the need to handle a document being added before the worker finishes, so an old result cannot become current.
+## 3. State Pattern
 
-2:45 PM to 3:00 PM
-- Driver: Raushan Goureddy
-- Navigator: Vanesha Hari
-Raushan went through delayed-build and Reset testing. Vanesha's navigator contribution was checking the expected interface state, especially that Search, Inspect, and Build Context remain disabled when the workspace has changed.
+MainWindow uses four separate state classes to manage the corpus lifecycle.
 
-Role swap: 2:45 PM.
-Testing and Challenges
-The relevant tests cover normal builds, simulated slow builds, adding documents during a build, Reset during a build, and failure reporting. The tricky part was that moving work to a thread prevents freezing but does not automatically keep the corpus current. Generation checks handle that problem.
+- EmptyState: No documents are present. Build requests are ignored. Adding a document transitions to DirtyState, while Reset keeps the application empty.
 
-Session 2: Remote Add Document IPC
-Date: Sunday, November 8, 2026
-Start: 6:10 PM
-End: 6:40 PM
-Codebase: Raushan Goureddy's M4 project
-Focus: Unix-domain socket requests, message framing, and workspace integration
+- DirtyState: Documents are present, but the corpus is outdated. Build transitions to BuildingState. Adding documents keeps the state dirty, and Reset returns to EmptyState.
 
-Work Completed
-This session focused on allowing aiws_send to send a document path to the running application. We reviewed how the server reads a four-byte length and the UTF-8 path, handles a request sent in multiple pieces, checks file readability, and passes the accepted path to the GUI. We also looked at how Remote Add should invalidate a build in progress just like the Add Document button.
+- BuildingState: A build is in progress. Additional Build requests are ignored. Adding a document cancels the build and transitions to DirtyState. Reset cancels the build and returns to EmptyState. Successful completion transitions to ReadyState, while failure returns to DirtyState.
 
-Driver and Navigator Roles
-6:10 PM to 6:25 PM
-- Driver: Raushan Goureddy
-- Navigator: Vanesha Hari
-Raushan worked through the socket server and client communication. Vanesha's navigator contribution was calling out the need to test partial socket reads rather than assuming that the entire request arrives in one operation.
+- ReadyState: The corpus matches the current workspace. Search, term inspection, and context building are available when their input requirements are met. Build transitions to BuildingState, adding documents transitions to DirtyState, and Reset returns to EmptyState.
 
-6:25 PM to 6:40 PM
-- Driver: Vanesha Hari
-- Navigator: Raushan Goureddy
-Vanesha went through the workspace integration and expected behavior when a document arrives during a build. Raushan's navigator contribution was reviewing invalid-path handling and whether the server socket is removed on Exit.
+Completion events are ignored outside BuildingState. All states support Exit through State::exit(). Confirmed exit destroys MainWindow and joins its worker threads.
 
-Role swap: 6:25 PM.
-Testing and Challenges
-The Remote Add tests cover valid and invalid document paths, spaces and Unicode in filenames, newlines, split requests, cleanup, and the unavailable-server exit code. During Docker testing, the default socket was /tmp/aiws-0.sock because the container ran as UID 0 without USER set. Using the correct path allowed the client to connect.
+MainWindow delegates events to the current state object. The update_action_states() function uses can_build() and corpus_current() to control available GUI operations.
 
-Reflection
-Working through the code together was most helpful when the driver explained the current change and the navigator suggested a concrete edge case to test. On the background-build side, we focused on keeping results consistent after workspace changes. On the socket side, we focused on correctly reading requests and getting them into the Qt GUI without blocking it. Switching roles made it easier to see both the implementation details and the cases that could go wrong.
+## 4. Event Sequence: Reset During Build
+
+1. DirtyState::build() calls start_build(), which submits a Workspace snapshot and revision.
+
+2. CorpusBuildJob::run() retrieves the request under mutex_ and processes it outside the lock.
+
+3. Reset increments workspace_revision_. BuildingState::reset() calls cancel_build().
+
+4. The request_cancel() function clears pending_ and result_, sets the active cancellation flag, and notifies condition_.
+
+5. The worker wakes from its simulated delay. ProcessingCore::rebuild_interruptible() and CorpusIndex::build_interruptible() stop obsolete processing.
+
+6. The cancelled result is not published, and the worker becomes available for the next request. The check_build_completion() function also rejects results with mismatched revisions.
+
+## 5. Design Decisions
+
+Build during build:
+
+BuildingState inherits the default no-op build() function. The update_action_states() function disables Build until completion or invalidation, preventing competing builds.
+
+Remote add during build:
+
+The add_document_from_ipc() function calls add_document_file(). The invalidate_corpus() function delegates to BuildingState::changed(), which cancels the obsolete build and transitions to DirtyState.
+
+Minimizing shared data:
+
+Only request and result handoff, cancellation, lifecycle observation, and shutdown information are shared. Private Workspace snapshots and ProcessingCore ownership transfer prevent concurrent modification of corpus data.
+
+## 6. Fault Detection
+
+AIWS_FAULT_NO_CANCEL:
+
+CorpusBuildJob::run() ignores request cancellation when this fault is enabled. The cancelled_build_does_not_delay_next_build() test detects the resulting delay in processing the replacement corpus.
+
+AIWS_FAULT_SILENT_SHUTDOWN:
+
+The CorpusBuildJob destructor omits the condition variable notification when this fault is enabled. The idle_worker_shutdown() test targets the resulting blocked join. CTest limits the test suite to 45 seconds.
+
+Test results:
+
+- Normal configuration: All tests passed in 3.90 seconds.
+- Cancellation fault: Expected failure in 10.99 seconds.
+- Silent shutdown fault: Expected timeout in 45.04 seconds.
+
+The fault configurations were tested before minor filename and formatting corrections to the test source. The normal configuration was rebuilt and passed after those corrections.
+
+## 7. AI Disclosure
+
+ChatGPT assisted with implementation, synchronization, State pattern design, test development, debugging, and documentation. I integrated the changes and executed the builds and tests in the course Docker environment.
