@@ -1,4 +1,79 @@
-﻿commit 13eac569b25c5d2d1a2b00b6afe6cfca0dcd9dce
+﻿commit 7fb1cc4dbc770b317113c680ef5e71ed4b3374eb
+Author: RaushanG1101 <raushang@vt.edu>
+Date:   2026-11-23 22:45:25 -0500
+
+    Document M5 synchronization, State pattern and fault detection
+
+ DESIGN.md | 130 ++++++++++++++++++++++++++++++++++----------------------------
+ 1 file changed, 71 insertions(+), 59 deletions(-)
+
+commit b9c4f53028cceb0f639aab2ba318aafe30f31615
+Author: RaushanG1101 <raushang@vt.edu>
+Date:   2026-11-23 22:38:12 -0500
+
+    Improve lifecycle test synchronization and finalize State event delegation
+
+ include/aiws/gui/corpus_build_job.hpp | 12 +++++
+ src/corpus_build_job.cpp              | 39 +++++++++++++++-
+ src/main_window.cpp                   | 11 +++--
+ tests/student_tests.cpp               | 84 ++++++++++++++++++++++++++++-------
+ 4 files changed, 126 insertions(+), 20 deletions(-)
+
+commit 0578d103a892c6e6ce85d9efa3d7f00695bec5b1
+Author: RaushanG1101 <raushang@vt.edu>
+Date:   2026-11-23 21:59:57 -0500
+
+    Add M5 lifecycle and fault detection tests
+
+ CMakeLists.txt          |   2 +-
+ tests/student_tests.cpp | 124 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 125 insertions(+), 1 deletion(-)
+
+commit cf8ff6d8bc5f1c0703b50fcb14a54d18b366f333
+Author: RaushanG1101 <raushang@vt.edu>
+Date:   2026-11-23 21:45:11 -0500
+
+    Implement persistent corpus worker, cancellation, shutdown and State pattern
+
+ include/aiws/corpus_index.hpp         |  42 ++-
+ include/aiws/gui/corpus_build_job.hpp |  67 +++--
+ include/aiws/gui/main_window.hpp      | 124 +++-----
+ include/aiws/processing_core.hpp      |  31 +-
+ src/corpus_build_job.cpp              | 192 ++++++++----
+ src/corpus_index.cpp                  | 129 ++++++--
+ src/main_window.cpp                   | 536 ++++++++++++++++++++++++++--------
+ src/processing_core.cpp               | 160 +++++++---
+ 8 files changed, 899 insertions(+), 382 deletions(-)
+
+commit 162420c0cc14ccfc229730d660d4415c53f7e173
+Author: RaushanG1101 <raushang@vt.edu>
+Date:   2026-11-23 21:06:25 -0500
+
+    Initialize M5 and rename application target
+
+ CMakeLists.txt | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+commit 872d5ac547ff8d9cd1c48077a4d7a0278bfdb7df
+Author: RaushanG1101 <raushang@vt.edu>
+Date:   2026-11-08 23:54:38 -0500
+
+    Fix SearchResultModel headers and IPC connection handling
+
+ src/search_result_model.cpp |  5 ++---
+ tools/aiws_send.cpp         | 18 ++++++++++--------
+ 2 files changed, 12 insertions(+), 11 deletions(-)
+
+commit 170c03a99a11e483498ce5273c4d3c3c9aab054d
+Author: RaushanG1101 <raushang@vt.edu>
+Date:   2026-11-08 23:40:49 -0500
+
+    Add M4 development history
+
+ HISTORY.txt | 113 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 113 insertions(+)
+
+commit 13eac569b25c5d2d1a2b00b6afe6cfca0dcd9dce
 Author: RaushanG1101 <raushang@vt.edu>
 Date:   2026-11-08 23:38:31 -0500
 
